@@ -1,92 +1,45 @@
 import os
 from pyrogram import Client, filters
-from pytgcalls import PyTgCalls
+from pytgcalls import GroupCallFactory
 from pytgcalls.types.input_stream import AudioPiped
-from dotenv import load_dotenv
 
-load_dotenv()
+# Load environment variables
+API_ID = int(os.environ.get("API_ID", 0))
+API_HASH = os.environ.get("API_HASH", "")
+STRING_SESSION = os.environ.get("STRING_SESSION", "")
+OWNER_ID = int(os.environ.get("OWNER_ID", 0))
+DEFAULT_VOLUME = int(os.environ.get("DEFAULT_VOLUME", 100))
 
-API_ID = int(os.getenv("API_ID"))
-API_HASH = os.getenv("API_HASH")
-SESSION_STRING = os.getenv("SESSION_STRING")
-OWNER_ID = int(os.getenv("OWNER_ID"))
-AUDIO_FILE = "audio.mp3"
-
+# Initialize Pyrogram client
 app = Client(
-    name="vc-userbot",
+    "userbot",
     api_id=API_ID,
     api_hash=API_HASH,
-    session_string=SESSION_STRING,
+    session_string=STRING_SESSION,
 )
 
-calls = PyTgCalls(app)
-current_volume = 100
+# Initialize GroupCallFactory (v0.3.x compatible)
+group_call_factory = GroupCallFactory(app, GroupCallFactory.MTPROTO_CLIENT_TYPE.PYROGRAM)
 
+# Connect voice call
+async def start_call(chat_id, audio_file):
+    group_call = group_call_factory.get_group_call()
+    await group_call.start(chat_id)
+    await group_call.change_stream(AudioPiped(audio_file))
+    await group_call.set_volume(DEFAULT_VOLUME)
+    return group_call
 
-# ---------- OWNER FILTER ----------
-def is_owner(_, __, message):
-    return message.from_user and message.from_user.id == OWNER_ID
+# Example command to play audio in a group
+@app.on_message(filters.user(OWNER_ID) & filters.command("play"))
+async def play_audio(client, message):
+    if len(message.command) < 2:
+        await message.reply_text("Usage: /play <audio_file_path>")
+        return
+    audio_file = message.command[1]
+    chat_id = message.chat.id
+    await start_call(chat_id, audio_file)
+    await message.reply_text(f"🎵 Playing {audio_file} in VC!")
 
-
-owner_filter = filters.create(is_owner)
-
-
-# ---------- JOIN VC ----------
-@app.on_message(filters.command("joinvc") & owner_filter)
-async def join_vc(client, message):
-    global current_volume
-
-    # /joinvc or /joinvc -1001234567
-    if len(message.command) > 1:
-        chat_id = int(message.command[1])
-    else:
-        chat_id = message.chat.id
-
-    try:
-        await calls.join_group_call(
-            chat_id,
-            AudioPiped(AUDIO_FILE, volume=current_volume)
-        )
-        await message.reply(f"✅ Joined VC in **{chat_id}** with volume {current_volume}%")
-    except Exception as e:
-        await message.reply(f"❌ Error joining VC:\n`{e}`")
-
-
-# ---------- LEAVE VC ----------
-@app.on_message(filters.command("leavevc") & owner_filter)
-async def leave_vc(client, message):
-    try:
-        await calls.leave_group_call(message.chat.id)
-        await message.reply("✅ Left VC")
-    except Exception as e:
-        await message.reply(f"❌ Error leaving VC:\n`{e}`")
-
-
-# ---------- SET VOLUME ----------
-@app.on_message(filters.command("volume") & owner_filter)
-async def change_volume(client, message):
-    global current_volume
-    try:
-        new_volume = int(message.command[1])
-        if new_volume < 1:
-            new_volume = 1
-        if new_volume > 500:
-            new_volume = 500
-
-        current_volume = new_volume
-
-        await calls.change_stream(
-            message.chat.id,
-            AudioPiped(AUDIO_FILE, volume=current_volume)
-        )
-
-        await message.reply(f"🔊 Volume set to {current_volume}%")
-    except Exception as e:
-        await message.reply(f"❌ Error:\n`{e}`")
-
-
-# ---------- START ----------
-app.start()
-calls.start()
-print("Bot started!")
-app.idle()
+# Start the bot
+print("Userbot started...")
+app.run()
