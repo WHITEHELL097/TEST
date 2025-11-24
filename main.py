@@ -1,43 +1,55 @@
 import os
+import asyncio
 from pyrogram import Client, filters
+from pyrogram.types import Message
 from pytgcalls import PyTgCalls
 from pytgcalls.types import AudioPiped
 
-# Environment variables
-API_ID = int(os.environ.get("API_ID", 0))
-API_HASH = os.environ.get("API_HASH", "")
-STRING_SESSION = os.environ.get("STRING_SESSION", "")
-OWNER_ID = int(os.environ.get("OWNER_ID", 0))
-DEFAULT_VOLUME = int(os.environ.get("DEFAULT_VOLUME", 100))
+# Load environment variables
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")
+STRING_SESSION = os.getenv("STRING_SESSION")
+OWNER_ID = int(os.getenv("OWNER_ID"))
+DEFAULT_VOLUME = int(os.getenv("DEFAULT_VOLUME", 50))
 
-# Pyrogram client
-app = Client(
-    "userbot",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    session_string=STRING_SESSION,
-)
+# Initialize Pyrogram client (userbot)
+app = Client("userbot", api_id=API_ID, api_hash=API_HASH, session_string=STRING_SESSION)
 
-# PyTgCalls client
-pytgcall = PyTgCalls(app)
+# Initialize PyTgCalls client
+pytgcalls = PyTgCalls(app)
 
-async def start_call(chat_id, audio_file):
-    await pytgcall.join_group_call(
-        chat_id,
-        AudioPiped(audio_file),
-    )
-    await pytgcall.set_stream_volume(chat_id, DEFAULT_VOLUME)
+# Filter to respond only to OWNER_ID
+owner_filter = filters.user(OWNER_ID)
 
-# Command to play audio
-@app.on_message(filters.user(OWNER_ID) & filters.command("play"))
-async def play_audio(client, message):
+@app.on_message(filters.command("play") & owner_filter)
+async def play_audio(client: Client, message: Message):
     if len(message.command) < 2:
-        await message.reply_text("Usage: /play <audio_file_path>")
+        await message.reply("Usage: /play <audio_file_path>")
         return
-    audio_file = message.command[1]
+    
+    audio_path = message.command[1]
     chat_id = message.chat.id
-    await start_call(chat_id, audio_file)
-    await message.reply_text(f"🎵 Playing {audio_file} in VC!")
+    
+    try:
+        # Check if already in a call; if not, join
+        if not pytgcalls.is_connected(chat_id):
+            await pytgcalls.join_group_call(chat_id, AudioPiped(audio_path), stream_type=1)  # 1 for audio
+        else:
+            # If already in call, change the stream
+            await pytgcalls.change_stream(chat_id, AudioPiped(audio_path))
+        
+        # Set volume
+        await pytgcalls.change_volume_call(chat_id, DEFAULT_VOLUME)
+        
+        await message.reply(f"Playing audio from {audio_path} at volume {DEFAULT_VOLUME}%")
+    except Exception as e:
+        await message.reply(f"Error playing audio: {str(e)}")
 
-print("Userbot started...")
-app.run()
+async def main():
+    await app.start()
+    await pytgcalls.start()
+    print("Bot is running...")
+    await asyncio.Future()  # Keep running
+
+if __name__ == "__main__":
+    asyncio.run(main())
