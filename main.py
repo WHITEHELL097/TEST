@@ -3,7 +3,8 @@ import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from pytgcalls import PyTgCalls
-from pytgcalls.types import AudioPiped, StreamType
+from pytgcalls.types.stream import AudioPiped
+from pytgcalls.types.stream_type import StreamType
 
 # Load environment variables
 API_ID = int(os.getenv("API_ID"))
