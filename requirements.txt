@@ -1,4 +1,3 @@
 pyrogram==2.0.106
-pytgcalls==3.0.0.dev6
-tgcalls==3.0.0.dev6
+py-tgcalls
 TgCrypto==1.2.5
