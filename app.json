@@ -1,0 +1,35 @@
+{
+  "name": "Telegram-Voice-VC-Userbot",
+  "description": "A Telegram VC userbot that joins VC, plays audio, accepts audio from a specific user, and supports manual volume control.",
+  "repository": "https://github.com/WHITEHELL097/TEST",
+  "env": {
+    "API_ID": {
+      "description": "Telegram API ID from my.telegram.org",
+      "required": true
+    },
+    "API_HASH": {
+      "description": "Telegram API HASH from my.telegram.org",
+      "required": true
+    },
+    "SESSION_STRING": {
+      "description": "Pyrogram Session String",
+      "required": true
+    },
+    "OWNER_ID": {
+      "description": "Telegram user ID allowed to send audio (your ID)",
+      "required": true,
+      "value": "6836129142"
+    }
+  },
+  "buildpacks": [
+    { "url": "heroku/python" }
+  ],
+  "formation": {
+    "worker": {
+      "quantity": 1,
+      "size": "free"
+    }
+  },
+  "addons": [],
+  "stack": "heroku-22"
+}
